@@ -12,9 +12,33 @@ def get_db_connection():
         password=os.environ.get('POSTGRES_PASSWORD'),
         host=os.environ.get('POSTGRES_HOST'),
         port=os.environ.get('POSTGRES_PORT', 5432),
-        sslmode='require'  # Enforce SSL connection for Supabase/secure hosts
+        sslmode='require'  # SSL required for Supabase etc.
     )
     return conn
+
+def init_sample_products():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM inventory.products;")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        sample_products = [
+            ("Laptop", 10, 1200.50),
+            ("Smartphone", 25, 650.00),
+            ("Wireless Mouse", 50, 25.99)
+        ]
+        cursor.executemany(
+            "INSERT INTO inventory.products (name, stock, price) VALUES (%s, %s, %s)",
+            sample_products
+        )
+        conn.commit()
+        print("Inserted sample products.")
+    cursor.close()
+    conn.close()
+
+@app.route('/')
+def home():
+    return "Inventory Service is running. Use /products to GET or POST product data.", 200
 
 @app.route('/products', methods=['GET'])
 def get_products():
@@ -29,6 +53,9 @@ def get_products():
 @app.route('/products', methods=['POST'])
 def add_product():
     data = request.get_json()
+    if not data or not all(k in data for k in ("name", "stock", "price")):
+        return jsonify({'error': 'Missing or invalid product data'}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -41,4 +68,5 @@ def add_product():
     return jsonify({'message': 'Product added'}), 201
 
 if __name__ == '__main__':
+    init_sample_products()
     app.run(debug=True, host='0.0.0.0', port=5002)
