@@ -16,6 +16,10 @@ def get_db_connection():
     )
     return conn
 
+@app.route('/')
+def home():
+    return "Order Service is running. Use /orders to GET or POST order data.", 200
+
 @app.route('/orders', methods=['GET'])
 def get_orders():
     conn = get_db_connection()
@@ -29,6 +33,9 @@ def get_orders():
 @app.route('/orders', methods=['POST'])
 def add_order():
     data = request.get_json()
+    if not data or not all(k in data for k in ("product_id", "quantity", "price")):
+        return jsonify({'error': 'Missing or invalid order data'}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
